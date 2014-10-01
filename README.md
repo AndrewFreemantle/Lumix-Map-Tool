@@ -20,4 +20,4 @@ the CD-ROM / DVD supplied with your DMC-TZ30 Series or DMC-TZ40 Series digital c
 
 
 
-[![Lumix-Map-Tool](http://www.fatlemon.co.uk/wp-content/uploads/Lumix-Map-Tool.png)]
+![Lumix-Map-Tool](http://www.fatlemon.co.uk/wp-content/uploads/Lumix-Map-Tool.png)
