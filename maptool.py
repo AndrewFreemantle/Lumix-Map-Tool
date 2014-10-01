@@ -200,9 +200,19 @@ def copyMapData(regionToCopy, mapDataLocation, sdCardLocation):
   count = 0
   copyErrors = False
   for match in matches:
+    # make sure the destination sub directory exists
+    subdir, filename = match[1].split("/")
+    destination = os.path.join(sdCardLocation, subdir)
+
+    if not os.path.exists(destination):
+      try:
+        os.mkdir(destination)
+      except:
+        pass  # ignore any error and try to copy the file anyway
+
     # copy the file..
     try:
-      shutil.copy(os.path.join(mapDataLocation, match[1]), sdCardLocation)
+      shutil.copy(os.path.join(mapDataLocation, match[1]), destination)
       sys.stdout.write('.')
     except (OSError, IOError):
       sys.stdout.write('X')
