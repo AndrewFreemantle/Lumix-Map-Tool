@@ -21,3 +21,7 @@ the CD-ROM / DVD supplied with your DMC-TZ30 Series or DMC-TZ40 Series digital c
 
 
 ![Lumix-Map-Tool](http://www.fatlemon.co.uk/wp-content/uploads/Lumix-Map-Tool.png)
+
+
+### Credits
+This script is based on [Roland Kluge's lumix_map_tool](https://github.com/RolandKluge/de.rolandkluge.lumix_map_tool) and the comments on [his article](http://blog.roland-kluge.de/?p=250)
