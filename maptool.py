@@ -1,142 +1,221 @@
 #!/usr/bin/python
 
 #
-# This tool is a very simple re-engineered version of the Lumix Map Tool.
+# This tool is a very simple re-engineered version of the Panasonic LUMIX Map Tool.
 #
-# It may be used for copying detailed geographic data to the camera's SD card.
-# To get an idea, of how the tool is used, execute
+# It may be used for copying detailed geographic data to the camera's SD card from
+# the CD-ROM / DVD supplied with your DMC-TZ30 Series or DMC-TZ40 Series digital camera.
 #
-#  python maptool.py --help
 #
-# Author: Roland Kluge
+# Usage:
+#
+#  python maptool.py
+#
+#
+# Authors: Roland Kluge          http://blog.roland-kluge.de/?p=250
+#          Andrew Freemantle     http://www.fatlemon.co.uk/lumix-map-tool
 #
 
-import re
+
 import os
+import re
 import sys
 import shutil
-import getopt
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
+# defaults
+MAP_LIST_FILENAME = 'MapList.dat'
+LUMIX_MODELS = [
+  ['DSC-TZ3x Series', 'PRIVATE/MAP_DATA/'],
+  ['DSC-TZ4x Series', 'PRIVATE/PANA_GRP/PAVC/LUMIX/MAP_DATA/']
+]
+REGIONS = [
+  [1, 'Japan'],
+  [2, 'South Asia, Southeast Asia'],
+  [3, 'Oceania'],
+  [4, 'North America, Central America'],
+  [5, 'South America'],
+  [6, 'Northern Europe'],
+  [7, 'Eastern Europe'],
+  [8, 'Western Europe'],
+  [9, 'West Asia, Africa'],
+  [10, 'Russia, North Asia'],
+]
 
-def main():  
-  
-  regions, path_to_mapdata, path_to_sdcard = parse_and_verify_args()
-  
-  mapdata_on_sdcard = path_to_sdcard + "/PRIVATE/MAP_DATA"
 
-  mapdata_filename = script_dir + "/MapList.dat"
-  mapdata_lines = open(mapdata_filename, 'r').readlines()
+def main():
 
-  current_region_id = -1;
-  filelist = []
-  files_per_region = []
-  for line in mapdata_lines:
-    line = line.strip()
-    if re.match("^\d\d", line):
-      current_region_id = int(line)
-      filelist = []
-      files_per_region.append(filelist)
-    elif re.match("^\d/BACK\d\d\d.KWI", line):
-      filelist.append(line)
-    
-  shutil.rmtree(mapdata_on_sdcard, ignore_errors = True)
-  os.makedirs(mapdata_on_sdcard)
+  printWelcomeMessage()
 
-  for selected_region_id in regions.split(";"):
-    print "Copying region " + selected_region_id + " ..."
-    for path in files_per_region[int(selected_region_id)]:
-      # print "Copy file" , path
-      
-      subdir = path.split("/")[0];
-      filename = path.split("/")[1];
-      
-      abspath_to_source_file = path_to_mapdata + "/" + path
-      target_dir = mapdata_on_sdcard + "/" + subdir
-      target_file = target_dir + "/" + filename
-      
-      if not os.path.exists(target_dir):
-        os.mkdir(target_dir)
-      
-      if not os.path.exists(target_file):
-        shutil.copy(abspath_to_source_file, target_dir)
-    print "Copying region " + selected_region_id + " DONE"
-    
-  print "All operations exited succesfully."
+  lumixModel = getLumixModel()
 
-def parse_and_verify_args():
+  mapDataLocation = getMapDataLocation()
+
+  sdCardLocation = getSDCardLocation(lumixModel)
+
+  printRegionList()
+
+  regionToCopy = '0'
+  while regionToCopy != '':
+    regionToCopy = raw_input('Which maps do you want? (number, \'a[ll]\', \'?\' for list, or [enter] to quit): ')
+
+    # is the region valid?
+    try:
+      regionToCopy = int(regionToCopy)
+
+      if regionToCopy in range(1,11):
+        copyMapData(regionToCopy, mapDataLocation, sdCardLocation)
+    except ValueError:
+      if regionToCopy in ('a', 'al', 'all'):
+        for region in range(1,11):
+          copyMapData(region, mapDataLocation, sdCardLocation)
+      elif regionToCopy in ('q', 'quit'):
+        # allow 'q' to quit as well
+        regionToCopy = ''
+      elif regionToCopy != '':
+        printRegionList()
+
+  print('Done, thank you  :o)')
+
+
+
+def printWelcomeMessage():
+  print('\nLUMIX Map Tool - Open Source edition  :o)\n')
+  print('This tool will copy the Map Data from the CD-ROM / DVD that')
+  print('accompanied your Panasonic LUMIX TZ30 / TZ40 Series digital camera')
+  print('to your SD Card.\n')
+  print('For more information please visit: http://www.fatlemon.co.uk/lumix-map-tool\n')
+
+
+
+def getLumixModel():
+  choices = ''
+  for i, model in enumerate(LUMIX_MODELS):
+    print(str(i) + ': ' + model[0])
+    if len(choices) > 0:
+      choices += ', '
+    choices += str(i)
+
+  lumixModel = 0
+  lumixModelInput = 'invalid'
+  while lumixModelInput == 'invalid':
+    lumixModelInput = raw_input('Which LUMIX camera do you have? (' + choices + '): ')
+
+    try:
+      lumixModel = int(lumixModelInput)
+
+      if lumixModel not in range(0, len(LUMIX_MODELS)):
+        # input is invalid, ask the user again
+        lumixModelInput = 'invalid'
+
+    except ValueError:
+      lumixModelInput = 'invalid'
+
+  return LUMIX_MODELS[lumixModel]
+
+
+
+def getMapDataLocation():
+  isLocationOK = False
+  mapDataLocation = ''
+  while not isLocationOK:
+    mapDataLocation = raw_input('Where\'s the Map Data? (e.g. \'/media/dvd/MAP_DATA\'): ')
+
+    # check the path exists
+    if not os.path.exists(mapDataLocation):
+      print('Hmm.. that location doesn\'t exist, please try again..')
+    elif not os.path.isfile(os.path.join(mapDataLocation, MAP_LIST_FILENAME)):
+      print('Hmm.. couldn\'t find \'' + MAP_LIST_FILENAME + '\' in that location, please try again')
+    else:
+      isLocationOK = True
+
+  return mapDataLocation
+
+
+
+def getSDCardLocation(lumixModel):
+  isLocationOK = False
+  sdCardLocation = ''
+  while not isLocationOK:
+    sdCardLocation = raw_input('And where\'s your SD Card? (e.g. \'/media/sdcard\'): ')
+
+    # check the path exists
+    if not os.path.exists(sdCardLocation):
+      print('Hmm.. that SD Card doesn\'t exist, please try again..')
+    else:
+      isLocationOK = True
+
+  # append the sub-directory location based on the LUMIX Model
+  sdCardLocation = os.path.join(sdCardLocation, lumixModel[1])
+
+  # is there any Map Data already on the card?
   try:
-    opts, args = getopt.getopt(sys.argv[1:], "hs:m:r:", ["help", "sdcard=", "mapdata=", "regions="])
-  except getopt.GetoptError as err:
-    print str(err)
-    usage()
-    sys.exit(2)
-    
-  path_to_sdcard = None
-  path_to_mapdata = None
-  regions = None
-    
-  for o, a in opts:
-    if o in ("-h", "--help"):
-      print usage()
-      sys.exit()
-    elif o in ("-s", "--sdcard"):
-      path_to_sdcard = a
-    elif o in ("-m", "--mapdata"):
-      path_to_mapdata = a  
-    elif o in ("-r", "--regions"):
-      regions = a
-      
-  if regions is None or not re.match("^(\d+;)*\d+$", regions):
-    print "Region list needs to be a semicolon-separated list of integers but was '" + str(regions) + "'"
-    sys.exit(1)
-  if path_to_sdcard is None or not os.path.exists(path_to_sdcard):
-    print path_to_sdcard
-    print "Option --sdcard is mandatory and needs to be an existing path"
-    sys.exit(1)
-  if path_to_mapdata is None or not os.path.exists(path_to_sdcard):
-    print "Option --mapdata is mandatory and needs to be an existing path"
-    sys.exit(1)
-      
-  return [regions, path_to_mapdata, path_to_sdcard]
+    if os.listdir(sdCardLocation):
+      # Map Data exists, ask if it should be removed..
+      emptyExistingLocation = raw_input('Got it, but the map data folder isn\'t empty, clear it? (y,n - default): ')
+      if emptyExistingLocation.startswith('y') | emptyExistingLocation.startswith('Y'):
+        shutil.rmtree(sdCardLocation)
+        print(' > cleared: ' + sdCardLocation)
+  except OSError:
+    pass    # directory doesn't exist, which is fine so nothing to do here
 
-def usage():
-  return "Usage: " + __file__ + """: --regions="<regions>" --mapdata="<path-to-mapdata>" --sdcard="<path-to-sdcard>" 
-(The quotes around parameter values are obligatory!)
+  # ensure the destination directory exists before we return
+  try:
+    os.makedirs(sdCardLocation)
+  except OSError:
+    pass    # directory exists, which is fine so nothing to do here   
 
--h
---help
-  Print help
+  return sdCardLocation
+
+
+
+def printRegionList():
+  for region in REGIONS:
+    print(str(region[0]).ljust(2) + ': ' + region[1])
+
+
+
+def copyMapData(regionToCopy, mapDataLocation, sdCardLocation):
+  # read the MapData.dat file
+  mapListLines = open(os.path.join(mapDataLocation, MAP_LIST_FILENAME), 'r').readlines()
+
+  mapData = []
+  currentRegion = -1
+
+  # load the information from the MapList.dat file into an
+  #  easily searchable list by Region
+  for line in mapListLines:
+    line = line.strip()
+    if re.match('^\d\d$', line):
+      # i.e. line looks like "01" then we have a new Region
+      currentRegion = int(line)
+    elif re.match('^[^{}]', line):
+      # i.e. line is not a curly bracket "{" or "}"
+      # which means it's a file needed for the current Region
+      mapData.append([currentRegion, line])
+    # else ignored
   
--r
---regions 
-  The semicolon-separated indices of the regions to copy. E.g. 1;6;10. At least 
-  one region needs to be given.
-   1 - Japan
-   2 - South Asia, Southeast Asia
-   3 - Oceania
-   4 - North America, Central America
-   5 - South America
-   6 - Northern Europe
-   7 - Eastern Europe
-   8 - Western Europe
-   9 - West Asia, Africa
-  10 - Russia, North Asia
+  # pull out just the files needed for the region we want to copy
+  matches = (l for l in mapData if l[0] == regionToCopy)
+  sys.stdout.write(' > copying ')
+  count = 0
+  copyErrors = False
+  for match in matches:
+    # copy the file..
+    try:
+      shutil.copy(os.path.join(mapDataLocation, match[1]), sdCardLocation)
+      sys.stdout.write('.')
+    except (OSError, IOError):
+      sys.stdout.write('X')
+      copyErrors = True
+    sys.stdout.flush()
+    count += 1
 
--m
---mapdata 
-  Path to the directory containing the map data. The referenced directory
-  should contain be the folder MAP_DATA on the DVD.
+  if copyErrors:
+    print(' ERROR: Sorry, there was a problem copying files')
+  else:
+    print(' done (' + str(count) + ' files)')
 
--s
---sdcard  
-  Path to sdcard. The tool will create subdirectories PRIVATE/MAP_DATA below this 
-  path and copy the appropriate files.
-  
-Example:
-  
-python mapdata.py --regions="6;7;8;10" --mapdata="/media/dvd/MAP_DATA" --sdcard="/media/sdcard"
-python mapdata.py -r "6;7;8" -m "/media/dvd/MAP_DATA" -s "/media/sdcard"
-  """
+
 
 main()
+
